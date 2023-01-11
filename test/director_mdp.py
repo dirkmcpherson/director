@@ -6,7 +6,7 @@ import numpy as np
 import gym
 from dreamerv2.utils.wrapper import GymMinAtar, OneHotAction
 from dreamerv2.training.config import MinAtarConfig
-from dreamerv2.training.trainer import Trainer
+from dreamerv2.training.director_trainer import Trainer
 from dreamerv2.training.evaluator import Evaluator
 
 def main(args):
@@ -115,8 +115,9 @@ def main(args):
                 prev_rssmstate = posterior_rssm_state
                 prev_action = action
             
-            if iter%1000==0:
-                print('current average score : ', np.mean(scores), 'average steps ', np.mean(episode_steps) ,'global_steps ', iter)
+            if iter%1000==0 and iter > 1:
+                goal_loss = train_metrics['goal_loss']
+                print('current average score : ', np.mean(scores), 'average steps ', np.mean(episode_steps) ,'global_steps ', iter, 'goal_loss ', goal_loss)
 
     '''evaluating probably best model'''
     evaluator.eval_saved_agent(env, best_save_path)

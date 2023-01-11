@@ -134,5 +134,6 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='cuda', help='CUDA or CPU')
     parser.add_argument('--batch_size', type=int, default=50, help='Batch size')
     parser.add_argument('--seq_len', type=int, default=50, help='Sequence Length (chunk length)')
+    parser.add_argument("--load", action="store_true")  # load
     args = parser.parse_args()
     main(args)

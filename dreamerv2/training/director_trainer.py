@@ -1,7 +1,11 @@
 import numpy as np
 import torch 
 import torch.optim as optim
+import torch.nn.functional as F
+import torch.distributions as td
+
 import os 
+import IPython
 
 from dreamerv2.utils.module import get_parameters, FreezeParameters
 from dreamerv2.utils.algorithm import compute_return
@@ -66,6 +70,7 @@ class Trainer(object):
         min_targ = []
         max_targ = []
         std_targ = []
+        goal_l = []
 
         for i in range(self.collect_intervals):
             obs, actions, rewards, terms = self.buffer.sample()
@@ -74,18 +79,32 @@ class Trainer(object):
             rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device).unsqueeze(-1)   #t-1 to t+seq_len-1
             nonterms = torch.tensor(1-terms, dtype=torch.float32).to(self.device).unsqueeze(-1)  #t-1 to t+seq_len-1
 
-            model_loss, kl_loss, obs_loss, reward_loss, pcont_loss, prior_dist, post_dist, posterior = self.representation_loss(obs, actions, rewards, nonterms)
+            embed = self.ObsEncoder(obs) # t to t+seq_len    
+            model_loss, kl_loss, obs_loss, reward_loss, pcont_loss, prior_dist, post_dist, posterior = self.representation_loss(obs, embed, actions, rewards, nonterms)
             
             self.model_optimizer.zero_grad()
             model_loss.backward()
             grad_norm_model = torch.nn.utils.clip_grad_norm_(get_parameters(self.world_list), self.grad_clip_norm)
             self.model_optimizer.step()
 
-            actor_loss, value_loss, target_info = self.actorcritc_loss(posterior)
+            # Update the goal autoencoder
+            goal = embed.detach() # x_t -> s_t
+            # s_t -> z
+            enc = self.GoalEncoder(goal)
+            # z -> s_t_hat
+            dec = self.GoalDecoder(enc.sample())
+            # IPython.embed()
+            prior = td.Independent(td.OneHotCategorical(logits=torch.zeros_like(enc.sample())), 1)
+            ae_kl_loss = torch.distributions.kl.kl_divergence(enc, prior)
+            rec = F.mse_loss(dec, goal) # The tensorflow code has this as -dec.log_prob(goal)
+            ae_loss = (rec + ae_kl_loss).mean()
 
+            self.goal_optimizer.zero_grad()
+            ae_loss.backward()
+
+            actor_loss, value_loss, target_info = self.actorcritc_loss(posterior)
             self.actor_optimizer.zero_grad()
             self.value_optimizer.zero_grad()
-
             actor_loss.backward()
             value_loss.backward()
 
@@ -112,6 +131,7 @@ class Trainer(object):
             min_targ.append(target_info['min_targ'])
             max_targ.append(target_info['max_targ'])
             std_targ.append(target_info['std_targ'])
+            goal_l.append(ae_loss.item())
 
         train_metrics['model_loss'] = np.mean(model_l)
         train_metrics['kl_loss']=np.mean(kl_l)
@@ -126,6 +146,7 @@ class Trainer(object):
         train_metrics['min_targ']=np.mean(min_targ)
         train_metrics['max_targ']=np.mean(max_targ)
         train_metrics['std_targ']=np.mean(std_targ)
+        train_metrics['goal_loss']=np.mean(goal_l)
 
         return train_metrics
 
@@ -162,9 +183,9 @@ class Trainer(object):
 
         return actor_loss, value_loss, target_info
 
-    def representation_loss(self, obs, actions, rewards, nonterms):
+    def representation_loss(self, obs, embed, actions, rewards, nonterms):
 
-        embed = self.ObsEncoder(obs)                                         #t to t+seq_len   
+        # embed = self.ObsEncoder(obs)                                         #t to t+seq_len   
         prev_rssm_state = self.RSSM._init_rssm_state(self.batch_size)   
         prior, posterior = self.RSSM.rollout_observation(self.seq_len, embed, actions, nonterms, prev_rssm_state)
         post_modelstate = self.RSSM.get_model_state(posterior)               #t to t+seq_len   
@@ -262,6 +283,8 @@ class Trainer(object):
             "ActionModel": self.ActionModel.state_dict(),
             "ValueModel": self.ValueModel.state_dict(),
             "DiscountModel": self.DiscountModel.state_dict(),
+            "GoalEncoder": self.GoalEncoder.state_dict(),
+            "GoalDecoder": self.GoalDecoder.state_dict()
         }
     
     def load_save_dict(self, saved_dict):
@@ -272,6 +295,8 @@ class Trainer(object):
         self.ActionModel.load_state_dict(saved_dict["ActionModel"])
         self.ValueModel.load_state_dict(saved_dict["ValueModel"])
         self.DiscountModel.load_state_dict(saved_dict['DiscountModel'])
+        self.GoalEncoder.load_state_dict(saved_dict['GoalEncoder'])
+        self.GoalDecoder.load_state_dict(saved_dict['GoalDecoder'])
             
     def _model_initialize(self, config):
 
@@ -285,9 +310,9 @@ class Trainer(object):
             class_size = config.rssm_info['class_size']
             stoch_size = category_size*class_size
 
-        embedding_size = config.embedding_size
-        rssm_node_size = config.rssm_node_size
-        modelstate_size = stoch_size + deter_size 
+        embedding_size = config.embedding_size # size of s_t
+        rssm_node_size = config.rssm_node_size # size of h_t
+        modelstate_size = stoch_size + deter_size # size of z_t
     
         print('Initializing model with: ')
         print(f"obs_shape: {config.obs_shape}")
@@ -302,35 +327,42 @@ class Trainer(object):
         self.ValueModel = DenseModel((1,), modelstate_size, config.critic).to(self.device)
         self.TargetValueModel = DenseModel((1,), modelstate_size, config.critic).to(self.device)
         self.TargetValueModel.load_state_dict(self.ValueModel.state_dict())
-        
+
         if config.discount['use']:
             self.DiscountModel = DenseModel((1,), modelstate_size, config.discount).to(self.device)
-        if config.pixel:
-            self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, config.obs_encoder).to(self.device)
-            self.ObsDecoder = ObsDecoder(obs_shape, modelstate_size, config.obs_decoder).to(self.device)
-        else:
-            self.ObsEncoder = DenseModel((embedding_size,), int(np.prod(obs_shape)), config.obs_encoder).to(self.device)
-            self.ObsDecoder = DenseModel(obs_shape, modelstate_size, config.obs_decoder).to(self.device)
+        if not config.pixel:
+            print("ERROR: Only pixel is supported.")
+            raise NotImplementedError
 
-        self._print_summary()
+        self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, config.obs_encoder).to(self.device)
+        self.ObsDecoder = ObsDecoder(obs_shape, modelstate_size, config.obs_decoder).to(self.device)
+
+        # autoencode the world model's representation s_t into a categorical discrete latent space z_t
+        self.GoalEncoder = DenseModel(output_shape=(modelstate_size,), input_size=embedding_size, info=config.goal_encoder).to(self.device)
+        self.GoalDecoder = DenseModel(output_shape=(embedding_size,), input_size=modelstate_size, info=config.goal_decoder).to(self.device)
+
+        # self._print_summary()
 
     def _optim_initialize(self, config):
-        model_lr = config.lr['model']
-        actor_lr = config.lr['actor']
-        value_lr = config.lr['critic']
         self.world_list = [self.ObsEncoder, self.RSSM, self.RewardDecoder, self.ObsDecoder, self.DiscountModel]
+        self.goal_ae_list = [self.GoalDecoder, self.GoalEncoder]
         self.actor_list = [self.ActionModel]
         self.value_list = [self.ValueModel]
         self.actorcritic_list = [self.ActionModel, self.ValueModel]
-        self.model_optimizer = optim.Adam(get_parameters(self.world_list), model_lr)
-        self.actor_optimizer = optim.Adam(get_parameters(self.actor_list), actor_lr)
-        self.value_optimizer = optim.Adam(get_parameters(self.value_list), value_lr)
+        self.model_optimizer = optim.Adam(get_parameters(self.world_list), config.lr['model'])
+        self.goal_optimizer = optim.Adam(get_parameters(self.goal_ae_list), config.lr['goal'])
+        self.actor_optimizer = optim.Adam(get_parameters(self.actor_list), config.lr['actor'])
+        self.value_optimizer = optim.Adam(get_parameters(self.value_list), config.lr['critic'])
 
     def _print_summary(self):
         print('\n Obs encoder: \n', self.ObsEncoder)
         print('\n RSSM model: \n', self.RSSM)
         print('\n Reward decoder: \n', self.RewardDecoder)
         print('\n Obs decoder: \n', self.ObsDecoder)
+        
+        print('\n Goal encoder: \n', self.GoalEncoder)
+        print('\n Goal decoder: \n', self.GoalDecoder)
+
         if self.config.discount['use']:
             print('\n Discount decoder: \n', self.DiscountModel)
         print('\n Actor: \n', self.ActionModel)

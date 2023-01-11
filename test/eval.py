@@ -22,7 +22,7 @@ def main(args):
         exp_id = args.id + '_pomdp'
         PomdpWrapper = pomdp_wrappers[env_name]
         env = PomdpWrapper(OneHotAction(GymMinAtar(env_name)))
-        print('using partial state info')
+        print('using partial state info ', env)
     else:
         exp_id = args.id
         env = OneHotAction(GymMinAtar(env_name))
@@ -55,7 +55,7 @@ def main(args):
         action_dtype = action_dtype,
         model_dir=model_dir, 
         eval_episode=args.eval_episode,
-        eval_render=eval_render
+        eval_render=args.eval_render
     )
 
     evaluator = Evaluator(config, device)
@@ -76,7 +76,8 @@ if __name__ == "__main__":
     parser.add_argument("--env", type=str, help='mini atari env name')
     parser.add_argument('--eval_episode', type=int, default=10, help='number of episodes to eval')
     parser.add_argument("--id", type=str, default='0', help='Experiment ID')
-    parser.add_argument("--eval_render", type=int, help='to render while evaluation')
+    # parser.add_argument("--eval_render", type=int, help='to render while evaluation')
+    parser.add_argument("--eval_render", action="store_true")  # load
     parser.add_argument("--pomdp", type=int, help='partial observation flag')
     parser.add_argument('--device', default='cuda', help='CUDA or CPU')
     args = parser.parse_args()

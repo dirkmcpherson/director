@@ -64,7 +64,7 @@ class RSSM(nn.Module, RSSMUtils):
         state_action_embed = self.fc_embed_state_action(torch.cat([prev_rssm_state.stoch*nonterms, prev_action],dim=-1))
         deter_state = self.rnn(state_action_embed, prev_rssm_state.deter*nonterms)
         if self.rssm_type == 'discrete':
-            prior_logit = self.fc_prior(deter_state)
+            prior_logit = self.fc_prior(deter_state) # get zhat
             stats = {'logit':prior_logit}
             prior_stoch_state = self.get_stoch_state(stats)
             prior_rssm_state = RSSMDiscState(prior_logit, prior_stoch_state, deter_state)

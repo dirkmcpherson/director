@@ -5,6 +5,9 @@ from dreamerv2.models.rssm import RSSM
 from dreamerv2.models.dense import DenseModel
 from dreamerv2.models.pixel import ObsDecoder, ObsEncoder
 
+from IPython import embed as ipshell
+import sys
+
 class Evaluator(object):
     '''
     used this only for minigrid envs
@@ -67,7 +70,10 @@ class Evaluator(object):
                     prev_rssmstate = posterior_rssm_state
                     prev_action = action
                 next_obs, rew, done, _ = env.step(action.squeeze(0).cpu().numpy())
+                # ipshell()
+                # sys.exit()
                 if self.config.eval_render:
+                    # ipshell()
                     env.render()
                 score += rew
                 obs = next_obs

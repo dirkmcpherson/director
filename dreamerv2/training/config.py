@@ -44,7 +44,7 @@ class MinAtarConfig():
     discount_: float = 0.99
     lambda_: float = 0.95
     horizon: int = 10
-    lr: Dict = field(default_factory=lambda:{'model':2e-4, 'actor':4e-5, 'critic':1e-4})
+    lr: Dict = field(default_factory=lambda:{'model':2e-4, 'actor':4e-5, 'critic':1e-4, 'goal':1e-4})
     loss_scale: Dict = field(default_factory=lambda:{'kl':0.1, 'reward':1.0, 'discount':5.0})
     kl: Dict = field(default_factory=lambda:{'use_kl_balance':True, 'kl_balance_scale':0.8, 'use_free_nats':False, 'free_nats':0.0})
     use_slow_target: float = True
@@ -64,6 +64,43 @@ class MinAtarConfig():
     obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU, 'kernel':3, 'depth':16})
     reward: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU})
     discount: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'binary', 'activation':nn.ELU, 'use':True})
+
+    #HRL
+    goal_encoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':"onehot", 'activation':nn.ELU, 'depth':16}) # dist is onehot in original code
+    goal_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':None, 'activation':nn.ELU, 'depth':16}) # Dist is MSE in original code
+    worker_grad: str = 'reinforce'
+    manager_grad: str = 'reinforce'
+
+    ## HRL from tensorflow director
+    # skill_shape: Tuple = (8, 8)
+    # env_skill_duration: 8
+    # train_skill_duration: 8
+    # skill_shape: [8, 8]
+    # manager_rews: {extr: 1.0, expl: 0.1, goal: 0.0}
+    # worker_rews: {extr: 0.0, expl: 0.0, goal: 1.0}
+    # worker_inputs: [deter, stoch, goal]
+    # worker_report_horizon: 64
+    # skill_proposal: manager
+    # goal_proposal: replay
+    # goal_reward: cosine_max
+    # goal_encoder: {layers: 4, units: 512, act: elu, norm: layer, dist: onehot, outscale: 0.1, unimix: 0.0, inputs: [goal]}
+    # goal_decoder: {layers: 4, units: 512, act: elu, norm: layer, dist: mse, outscale: 0.1, inputs: [skill]}
+    # encdec_kl: {impl: mult, scale: 0.0, target: 10.0, min: 1e-5, max: 1.0}
+    # encdec_opt: {opt: adam, lr: 1e-4, eps: 1e-6, clip: 100.0, wd: 1e-2, wd_pattern: 'kernel'}
+    # worker_goals: [manager]
+    # jointly: new
+    # vae_imag: False
+    # vae_replay: True
+    # vae_span: False
+    # explorer: False
+    # explorer_repeat: False
+    # expl_rew: adver  # disag
+    # manager_dist: onehot
+    # manager_grad: reinforce
+    # manager_actent: 0.5
+    # adver_impl: squared  # elbo_scaled
+    # manager_delta: False
+    # goal_kl: True
 
 
 @dataclass
