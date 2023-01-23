@@ -33,6 +33,7 @@ class MinAtarConfig():
     model_dir: int = 'results'
     gif_dir: int = 'results'
     buffer_dir: int = 'buffer'
+    save_out_buffer: bool = False
     
     #latent space desc
     rssm_type: str = 'discrete'

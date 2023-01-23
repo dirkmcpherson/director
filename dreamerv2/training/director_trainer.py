@@ -340,7 +340,9 @@ class Trainer(object):
         print(f"rssm_node_size {rssm_node_size} rssm_type: {config.rssm_type}")
         print(f"embedding_size: {embedding_size}")
         print(f"model state size: {modelstate_size}")
-        self.buffer = TransitionBuffer(config.capacity, obs_shape, action_size, config.seq_len, config.batch_size, config.obs_dtype, config.action_dtype, path=config.buffer_dir)
+
+        buffer_save_path = config.buffer_dir if config.save_out_buffer else None
+        self.buffer = TransitionBuffer(config.capacity, obs_shape, action_size, config.seq_len, config.batch_size, config.obs_dtype, config.action_dtype, path=buffer_save_path)
         self.RSSM = RSSM(action_size, rssm_node_size, embedding_size, self.device, config.rssm_type, config.rssm_info).to(self.device)
         self.ActionModel = DiscreteActionModel(action_size, deter_size, stoch_size, embedding_size, config.actor, config.expl).to(self.device)
         self.RewardDecoder = DenseModel((1,), modelstate_size, config.reward).to(self.device)
