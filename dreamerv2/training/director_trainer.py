@@ -365,19 +365,14 @@ class Trainer(object):
         self.GoalEncoder = GoalEncoder(output_shape=(z_size,), input_size=s_size, info=config.goal_encoder).to(self.device)
         self.GoalDecoder = DenseModel(output_shape=(s_size,), input_size=z_size, info=config.goal_decoder).to(self.device)
 
-        self.GoalEncoder2 = GoalEncoder(output_shape=(z_size,), input_size=s_size, info=config.goal_encoder).to(self.device)
-        self.GoalDecoder2 = DenseModel(output_shape=(s_size,), input_size=z_size, info=config.goal_decoder).to(self.device)
-
     def _optim_initialize(self, config):
         self.world_list = [self.ObsEncoder, self.RSSM, self.RewardDecoder, self.ObsDecoder, self.DiscountModel]
         self.goal_ae_list = [self.GoalDecoder, self.GoalEncoder]
-        self.goal_ae_list2 = [self.GoalDecoder2, self.GoalEncoder2]
         self.actor_list = [self.ActionModel]
         self.value_list = [self.ValueModel]
         self.actorcritic_list = [self.ActionModel, self.ValueModel]
         self.model_optimizer = optim.Adam(get_parameters(self.world_list), config.lr['model'])
         self.goal_optimizer = optim.Adam(get_parameters(self.goal_ae_list), config.lr['goal'])
-        self.goal_optimizer2 = optim.Adam(get_parameters(self.goal_ae_list2), config.lr['goal'])
         self.actor_optimizer = optim.Adam(get_parameters(self.actor_list), config.lr['actor'])
         self.value_optimizer = optim.Adam(get_parameters(self.value_list), config.lr['critic'])
 
