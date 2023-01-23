@@ -330,9 +330,9 @@ class Trainer(object):
             class_size = config.rssm_info['class_size']
             stoch_size = category_size*class_size
 
-        embedding_size = config.embedding_size # size of s_t
-        rssm_node_size = config.rssm_node_size # size of h_t
-        modelstate_size = stoch_size + deter_size # size of z_t
+        embedding_size = config.embedding_size
+        rssm_node_size = config.rssm_node_size
+        modelstate_size = stoch_size + deter_size
     
         print('Initializing model with: ')
         print(f"obs_shape: {config.obs_shape}")
@@ -360,8 +360,6 @@ class Trainer(object):
         self.ObsDecoder = ObsDecoder(obs_shape, modelstate_size, config.obs_decoder).to(self.device)
 
         # autoencode the world model's representation s_t into a categorical discrete latent space z_t
-        # self.GoalEncoder = DenseModel(output_shape=(modelstate_size,), input_size=embedding_size, info=config.goal_encoder).to(self.device)
-        # s_size = embedding_size + config.rssm_info['deter_size']
         s_size = config.rssm_info['deter_size']
         z_size = config.goal_encoder['category_size'] * config.goal_encoder['class_size']
         self.GoalEncoder = GoalEncoder(output_shape=(z_size,), input_size=s_size, info=config.goal_encoder).to(self.device)
@@ -369,8 +367,6 @@ class Trainer(object):
 
         self.GoalEncoder2 = GoalEncoder(output_shape=(z_size,), input_size=s_size, info=config.goal_encoder).to(self.device)
         self.GoalDecoder2 = DenseModel(output_shape=(s_size,), input_size=z_size, info=config.goal_decoder).to(self.device)
-
-        # self._print_summary()
 
     def _optim_initialize(self, config):
         self.world_list = [self.ObsEncoder, self.RSSM, self.RewardDecoder, self.ObsDecoder, self.DiscountModel]
