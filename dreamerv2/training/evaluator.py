@@ -4,9 +4,13 @@ from dreamerv2.models.actor import DiscreteActionModel
 from dreamerv2.models.rssm import RSSM
 from dreamerv2.models.dense import DenseModel
 from dreamerv2.models.pixel import ObsDecoder, ObsEncoder
+from dreamerv2.models.goal import GoalEncoder
 
 from IPython import embed as ipshell
 import sys
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import seaborn as sns
 
 class Evaluator(object):
     '''
@@ -16,10 +20,12 @@ class Evaluator(object):
         self, 
         config,
         device,
+        env = None,
     ):
         self.device = device
         self.config = config
         self.action_size = config.action_size
+        self.env = env
 
     def load_model(self, config, model_path):
         saved_dict = torch.load(model_path)
@@ -52,7 +58,39 @@ class Evaluator(object):
         self.ObsDecoder.load_state_dict(saved_dict["ObsDecoder"])
         self.ActionModel.load_state_dict(saved_dict["ActionModel"])
 
+        
+        if "GoalEncoder" in saved_dict:
+            s_size = config.rssm_info['deter_size']
+            z_size = config.goal_encoder['category_size'] * config.goal_encoder['class_size']
+            self.GoalEncoder = GoalEncoder(output_shape=(z_size,), input_size=s_size, info=config.goal_encoder).to(self.device).eval()
+            self.GoalDecoder = DenseModel(output_shape=(s_size,), input_size=z_size, info=config.goal_decoder).to(self.device).eval()
+            self.GoalEncoder.load_state_dict(saved_dict["GoalEncoder"])
+            self.GoalDecoder.load_state_dict(saved_dict["GoalDecoder"])
+
+            self.n_channels = 4 # should be self.env.state_shape()[2]
+
+            self.cmap = sns.color_palette("cubehelix", self.n_channels)
+            self.cmap.insert(0,(0,0,0))
+            self.cmap=colors.ListedColormap(self.cmap)
+            bounds = [i for i in range(self.n_channels+2)]
+            self.norm = colors.BoundaryNorm(bounds, self.n_channels+1)
+
+            self.fig = plt.figure(num=9, figsize=(5,5))
+            self.ax = self.fig.add_subplot(111)
+        else:
+            print(f"no goal encoder found in {model_path}")
+
+
+    def render_embedding(self, decoded_img):
+        self.ax.cla()
+        # ipshell()
+        # sys.exit()
+        numerical_state = np.amax(decoded_img*np.reshape(np.arange(self.n_channels)+1,(1,1,-1)),2)+0.5
+        # numerical_state = np.amax(decoded_img, 2)+0.5
+        self.ax.imshow(numerical_state, cmap=self.cmap, norm=self.norm, interpolation='none')
+
     def eval_saved_agent(self, env, model_path):
+        self.env = env
         self.load_model(self.config, model_path)
         eval_episode = self.config.eval_episode
         eval_scores = []    
@@ -69,12 +107,30 @@ class Evaluator(object):
                     action, _ = self.ActionModel(model_state)
                     prev_rssmstate = posterior_rssm_state
                     prev_action = action
+
+
+
+                    # Goal Encoder
+                    # s = posterior_rssm_state.deter
+                    # goal = self.GoalEncoder(s).sample() # dont need the gradient on the onehotcategorical so no rsample
+                    # goal = goal.view(1, -1)
+                    # decoded_s = self.GoalDecoder(goal)
+                    # decoded_img = self.ObsDecoder(torch.cat((decoded_s, posterior_rssm_state.stoch), dim=-1)).sample()
+                    decoded_img = self.ObsDecoder(model_state).sample()
+                    decoded_img = decoded_img.squeeze(0).cpu().numpy()
+                    decoded_img = np.transpose(decoded_img, (1,2,0))
+                    # ipshell()
+                    # sys.exit()
+                    
                 next_obs, rew, done, _ = env.step(action.squeeze(0).cpu().numpy())
                 # ipshell()
                 # sys.exit()
                 if self.config.eval_render:
+
                     # ipshell()
+                    self.render_embedding(decoded_img)
                     env.render()
+
                 score += rew
                 obs = next_obs
             eval_scores.append(score)

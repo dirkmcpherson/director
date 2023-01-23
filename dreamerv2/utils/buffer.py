@@ -2,6 +2,8 @@ import numpy as np
 import random 
 from collections import namedtuple, deque
 from typing import Optional, Tuple
+import datetime
+import os
 
 class TransitionBuffer():
     def __init__(
@@ -13,6 +15,7 @@ class TransitionBuffer():
         batch_size: int,
         obs_type=np.float32,
         action_type=np.float32,
+        path: Optional[str] = None,
     ):
 
         self.capacity = capacity
@@ -28,6 +31,10 @@ class TransitionBuffer():
         self.action = np.empty((capacity, action_size), dtype=np.float32)
         self.reward = np.empty((capacity,), dtype=np.float32) 
         self.terminal = np.empty((capacity,), dtype=bool)
+        self.path = path
+        if (path is not None): 
+            self.path = os.path.join(path, f'{datetime.datetime.now().strftime("buffer_%H_%M_%S__M%mD%d")}')
+            os.makedirs(self.path, exist_ok=True)
 
     def add(
         self,
@@ -42,6 +49,27 @@ class TransitionBuffer():
         self.terminal[self.idx] = done
         self.idx = (self.idx + 1) % self.capacity
         self.full = self.full or self.idx == 0
+        if (self.full and self.path is not None):
+            print('buffer full. Saving out...')
+            np.save(f'{self.path}/obs.npy', self.observation)
+            np.save(f'{self.path}/act.npy', self.action)
+            np.save(f'{self.path}/rew.npy', self.reward)
+            np.save(f'{self.path}/term.npy', self.terminal)
+            print("Resetting buffer. This might do something weird to learning...")
+            self.idx = 0
+            self.full = False
+            self.observation = np.empty((self.capacity, *self.obs_shape), dtype=self.obs_type) 
+            self.action = np.empty((self.capacity, self.action_size), dtype=np.float32)
+            self.reward = np.empty((self.capacity,), dtype=np.float32) 
+            self.terminal = np.empty((self.capacity,), dtype=bool)
+
+    def load_buffer(self, path):
+        self.observation = np.load(f'{path}/obs.npy')
+        self.action = np.load(f'{path}/act.npy')
+        self.reward = np.load(f'{path}/rew.npy')
+        self.terminal = np.load(f'{path}/term.npy')
+        self.idx = self.capacity
+        self.full = True
 
     def _sample_idx(self, L):
         valid_idx = False

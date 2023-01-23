@@ -36,6 +36,13 @@ def main(args):
     batch_size = args.batch_size
     seq_len = args.seq_len
 
+    print('obs_shape:', obs_shape)
+    print('action_size:', action_size)
+    print('obs_dtype:', obs_dtype)
+    print('action_dtype:', action_dtype)
+    print('batch_size:', batch_size)
+    print('seq_len:', seq_len)
+
     config = MinAtarConfig(
         env=env_name,
         obs_shape=obs_shape,
@@ -117,7 +124,7 @@ def main(args):
             
             if iter%1000==0 and iter > 1:
                 goal_loss = train_metrics['goal_loss']
-                print('current average score : ', np.mean(scores), 'average steps ', np.mean(episode_steps) ,'global_steps ', iter, 'goal_loss ', goal_loss)
+                print('current average score : ', np.mean(scores), 'average steps ', np.mean(episode_steps) ,'global_steps ', iter, f'goal_loss {goal_loss:1.2f}')
 
     '''evaluating probably best model'''
     evaluator.eval_saved_agent(env, best_save_path)
@@ -126,7 +133,7 @@ if __name__ == "__main__":
 
     """there are tonnes of HPs, if you want to do an ablation over any particular one, please add if here"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, help='mini atari env name')
+    parser.add_argument("--env", type=str, help='mini atari env name', default='breakout')
     parser.add_argument("--id", type=str, default='0', help='Experiment ID')
     parser.add_argument('--seed', type=int, default=123, help='Random seed')
     parser.add_argument('--device', default='cuda', help='CUDA or CPU')

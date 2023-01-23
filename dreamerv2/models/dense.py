@@ -1,6 +1,7 @@
 import numpy as np
 import torch.nn as nn
 import torch.distributions as td
+from dreamerv2.utils.ptutils import OneHotDist
 
 class DenseModel(nn.Module):
     def __init__(
@@ -38,11 +39,6 @@ class DenseModel(nn.Module):
             return td.independent.Independent(td.Normal(dist_inputs, 1), len(self._output_shape))
         if self.dist == 'binary':
             return td.independent.Independent(td.Bernoulli(logits=dist_inputs), len(self._output_shape))
-        # if self.dist == 'mse':
-        #     pass
-        if self.dist == 'onehot':
-            
-            return td.independent.Independent(td.OneHotCategorical(logits=dist_inputs), len(self._output_shape))
         if self.dist == None:
             return dist_inputs
 

@@ -43,8 +43,8 @@ class RSSM(nn.Module, RSSMUtils):
         temporal_prior += [self.act_fn()]
         if self.rssm_type == 'discrete':
             temporal_prior += [nn.Linear(self.node_size, self.stoch_size)]
-        elif self.rssm_type == 'continuous':
-             temporal_prior += [nn.Linear(self.node_size, 2 * self.stoch_size)]
+        # elif self.rssm_type == 'continuous':
+            #  temporal_prior += [nn.Linear(self.node_size, 2 * self.stoch_size)]
         return nn.Sequential(*temporal_prior)
 
     def _build_temporal_posterior(self):
@@ -56,24 +56,24 @@ class RSSM(nn.Module, RSSMUtils):
         temporal_posterior += [self.act_fn()]
         if self.rssm_type == 'discrete':
             temporal_posterior += [nn.Linear(self.node_size, self.stoch_size)]
-        elif self.rssm_type == 'continuous':
-            temporal_posterior += [nn.Linear(self.node_size, 2 * self.stoch_size)]
+        # elif self.rssm_type == 'continuous':
+            # temporal_posterior += [nn.Linear(self.node_size, 2 * self.stoch_size)]
         return nn.Sequential(*temporal_posterior)
     
     def rssm_imagine(self, prev_action, prev_rssm_state, nonterms=True):
         state_action_embed = self.fc_embed_state_action(torch.cat([prev_rssm_state.stoch*nonterms, prev_action],dim=-1))
-        deter_state = self.rnn(state_action_embed, prev_rssm_state.deter*nonterms)
+        deter_state = self.rnn(state_action_embed, prev_rssm_state.deter*nonterms) # get h
         if self.rssm_type == 'discrete':
             prior_logit = self.fc_prior(deter_state) # get zhat
             stats = {'logit':prior_logit}
             prior_stoch_state = self.get_stoch_state(stats)
             prior_rssm_state = RSSMDiscState(prior_logit, prior_stoch_state, deter_state)
 
-        elif self.rssm_type == 'continuous':
-            prior_mean, prior_std = torch.chunk(self.fc_prior(deter_state), 2, dim=-1)
-            stats = {'mean':prior_mean, 'std':prior_std}
-            prior_stoch_state, std = self.get_stoch_state(stats)
-            prior_rssm_state = RSSMContState(prior_mean, std, prior_stoch_state, deter_state)
+        # elif self.rssm_type == 'continuous':
+        #     prior_mean, prior_std = torch.chunk(self.fc_prior(deter_state), 2, dim=-1)
+        #     stats = {'mean':prior_mean, 'std':prior_std}
+        #     prior_stoch_state, std = self.get_stoch_state(stats)
+        #     prior_rssm_state = RSSMContState(prior_mean, std, prior_stoch_state, deter_state)
         return prior_rssm_state
 
     def rollout_imagination(self, horizon:int, actor:nn.Module, prev_rssm_state):
@@ -95,19 +95,19 @@ class RSSM(nn.Module, RSSMUtils):
 
     def rssm_observe(self, obs_embed, prev_action, prev_nonterm, prev_rssm_state):
         prior_rssm_state = self.rssm_imagine(prev_action, prev_rssm_state, prev_nonterm)
-        deter_state = prior_rssm_state.deter
-        x = torch.cat([deter_state, obs_embed], dim=-1)
+        deter_state = prior_rssm_state.deter # h
+        x = torch.cat([deter_state, obs_embed], dim=-1) # h and s
         if self.rssm_type == 'discrete':
             posterior_logit = self.fc_posterior(x)
             stats = {'logit':posterior_logit}
             posterior_stoch_state = self.get_stoch_state(stats)
             posterior_rssm_state = RSSMDiscState(posterior_logit, posterior_stoch_state, deter_state)
         
-        elif self.rssm_type == 'continuous':
-            posterior_mean, posterior_std = torch.chunk(self.fc_posterior(x), 2, dim=-1)
-            stats = {'mean':posterior_mean, 'std':posterior_std}
-            posterior_stoch_state, std = self.get_stoch_state(stats)
-            posterior_rssm_state = RSSMContState(posterior_mean, std, posterior_stoch_state, deter_state)
+        # elif self.rssm_type == 'continuous':
+        #     posterior_mean, posterior_std = torch.chunk(self.fc_posterior(x), 2, dim=-1)
+        #     stats = {'mean':posterior_mean, 'std':posterior_std}
+        #     posterior_stoch_state, std = self.get_stoch_state(stats)
+        #     posterior_rssm_state = RSSMContState(posterior_mean, std, posterior_stoch_state, deter_state)
         return prior_rssm_state, posterior_rssm_state
 
     def rollout_observation(self, seq_len:int, obs_embed: torch.Tensor, action: torch.Tensor, nonterms: torch.Tensor, prev_rssm_state):

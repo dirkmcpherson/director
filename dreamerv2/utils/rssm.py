@@ -59,9 +59,10 @@ class RSSMUtils(object):
         if self.rssm_type == 'discrete':
             shape = rssm_state.logit.shape
             logit = torch.reshape(rssm_state.logit, shape = (*shape[:-1], self.category_size, self.class_size))
+            # print(logit.shape)
             return td.Independent(td.OneHotCategoricalStraightThrough(logits=logit), 1)
-        elif self.rssm_type == 'continuous':
-            return td.independent.Independent(td.Normal(rssm_state.mean, rssm_state.std), 1)
+        elif self.rssm_type == 'continuous': raise NotImplementedError
+            # return td.independent.Independent(td.Normal(rssm_state.mean, rssm_state.std), 1)
 
     def get_stoch_state(self, stats):
         if self.rssm_type == 'discrete':
@@ -70,14 +71,15 @@ class RSSMUtils(object):
             logit = torch.reshape(logit, shape = (*shape[:-1], self.category_size, self.class_size))
             dist = torch.distributions.OneHotCategorical(logits=logit)        
             stoch = dist.sample()
-            stoch += dist.probs - dist.probs.detach()
+            #TODO: look at how the next line changes stoch. WTF.
+            stoch += dist.probs - dist.probs.detach() # the fuck is this - JSS
             return torch.flatten(stoch, start_dim=-2, end_dim=-1)
 
-        elif self.rssm_type == 'continuous':
-            mean = stats['mean']
-            std = stats['std']
-            std = F.softplus(std) + self.min_std
-            return mean + std*torch.randn_like(mean), std
+        elif self.rssm_type == 'continuous': raise NotImplementedError
+            # mean = stats['mean']
+            # std = stats['std']
+            # std = F.softplus(std) + self.min_std
+            # return mean + std*torch.randn_like(mean), std
 
     def rssm_stack_states(self, rssm_states, dim):
         if self.rssm_type == 'discrete':
@@ -95,10 +97,11 @@ class RSSMUtils(object):
         )
 
     def get_model_state(self, rssm_state):
-        if self.rssm_type == 'discrete':
-            return torch.cat((rssm_state.deter, rssm_state.stoch), dim=-1)
-        elif self.rssm_type == 'continuous':
-            return torch.cat((rssm_state.deter, rssm_state.stoch), dim=-1)
+        return torch.cat((rssm_state.deter, rssm_state.stoch), dim=-1)
+        # if self.rssm_type == 'discrete':
+        #     return torch.cat((rssm_state.deter, rssm_state.stoch), dim=-1)
+        # elif self.rssm_type == 'continuous':
+        #     return torch.cat((rssm_state.deter, rssm_state.stoch), dim=-1)
 
     def rssm_detach(self, rssm_state):
         if self.rssm_type == 'discrete':
@@ -107,13 +110,13 @@ class RSSMUtils(object):
                 rssm_state.stoch.detach(),
                 rssm_state.deter.detach(),
             )
-        elif self.rssm_type == 'continuous':
-            return RSSMContState(
-                rssm_state.mean.detach(),
-                rssm_state.std.detach(),  
-                rssm_state.stoch.detach(),
-                rssm_state.deter.detach()
-            )
+        elif self.rssm_type == 'continuous': raise NotImplementedError
+            # return RSSMContState(
+            #     rssm_state.mean.detach(),
+            #     rssm_state.std.detach(),  
+            #     rssm_state.stoch.detach(),
+            #     rssm_state.deter.detach()
+            # )
 
     def _init_rssm_state(self, batch_size, **kwargs):
         if self.rssm_type  == 'discrete':
@@ -122,13 +125,13 @@ class RSSMUtils(object):
                 torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
                 torch.zeros(batch_size, self.deter_size, **kwargs).to(self.device),
             )
-        elif self.rssm_type == 'continuous':
-            return RSSMContState(
-                torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
-                torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
-                torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
-                torch.zeros(batch_size, self.deter_size, **kwargs).to(self.device),
-            )
+        elif self.rssm_type == 'continuous': raise NotImplementedError
+            # return RSSMContState(
+            #     torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
+            #     torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
+            #     torch.zeros(batch_size, self.stoch_size, **kwargs).to(self.device),
+            #     torch.zeros(batch_size, self.deter_size, **kwargs).to(self.device),
+            # )
             
 def seq_to_batch(sequence_data, batch_size, seq_len):
     """

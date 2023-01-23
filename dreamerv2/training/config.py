@@ -24,20 +24,21 @@ class MinAtarConfig():
     train_steps: int = int(5e6)
     train_every: int = 50                                  #reduce this to potentially improve sample requirements
     collect_intervals: int = 5 
-    batch_size: int = 50 
-    seq_len: int = 50
+    batch_size: int = 40
+    seq_len: int = 40
     eval_episode: int = 4
     eval_render: bool = True
     save_every: int = int(1e5)
     seed_steps: int = 4000
     model_dir: int = 'results'
     gif_dir: int = 'results'
+    buffer_dir: int = 'buffer'
     
     #latent space desc
     rssm_type: str = 'discrete'
     embedding_size: int = 200
     rssm_node_size: int = 200
-    rssm_info: Dict = field(default_factory=lambda:{'deter_size':200, 'stoch_size':20, 'class_size':20, 'category_size':20, 'min_std':0.1})
+    rssm_info: Dict = field(default_factory=lambda:{'deter_size':1024, 'stoch_size':128, 'class_size':20, 'category_size':20, 'min_std':0.1})
     
     #objective desc
     grad_clip: float = 100.0
@@ -61,13 +62,14 @@ class MinAtarConfig():
 
     #learnt world-models desc
     obs_encoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist': None, 'activation':nn.ELU, 'kernel':3, 'depth':16})
-    obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU, 'kernel':3, 'depth':16})
+    # obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU, 'kernel':3, 'depth':16})
+    obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'binary', 'activation':nn.ELU, 'kernel':3, 'depth':16})
     reward: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU})
     discount: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'binary', 'activation':nn.ELU, 'use':True})
 
     #HRL
-    goal_encoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':"onehot", 'activation':nn.ELU, 'depth':16}) # dist is onehot in original code
-    goal_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':None, 'activation':nn.ELU, 'depth':16}) # Dist is MSE in original code
+    goal_encoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':200, 'dist':"onehotst", 'activation':nn.ELU, 'depth':16, 'class_size':16, 'category_size':16}) # dist is onehot in original code
+    goal_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':200, 'dist':None, 'activation':nn.ELU, 'depth':16, 'class_size':16, 'category_size':16}) # Dist is MSE in original code
     worker_grad: str = 'reinforce'
     manager_grad: str = 'reinforce'
 
@@ -123,7 +125,7 @@ class MiniGridConfig():
     train_steps: int = int(1e6)
     train_every: int = 5
     collect_intervals: int = 5
-    batch_size: int = 50
+    batch_size: int = 40
     seq_len: int = 8
     eval_episode: int = 5
     eval_render: bool = False
@@ -131,6 +133,7 @@ class MiniGridConfig():
     seed_episodes: int = 5
     model_dir: int = 'results'
     gif_dir: int = 'results'
+    buffer_dir: int = 'buffer'
 
     #latent space desc
     rssm_type: str = 'discrete'
