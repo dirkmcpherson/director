@@ -205,7 +205,7 @@ class Trainer(object):
         s = s.permute(1, 0, 2)
 
         goal_dist = self.GoalEncoder(s)
-        goal = goal_dist.rsample().view(self.batch_size, self.seq_len, self.GoalEncoder.category_size * self.GoalEncoder.class_size) # TODO: order of category vs class?
+        goal = goal_dist.rsample().view(self.batch_size, self.seq_len, self.GoalEncoder.category_size * self.GoalEncoder.class_size)
         gdec = self.GoalDecoder(goal)
 
         recreate_loss = torch.sum((gdec - s)**2, dim=2) # sum across the hidden state dimensino so we can compare batch and seq_idx to each other

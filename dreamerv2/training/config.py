@@ -61,7 +61,7 @@ class MinAtarConfig():
     actor_grad_mix: int = 0.0
     actor_entropy_scale: float = 1e-3
 
-    #learnt world-models desc
+    #learnt world desc
     obs_encoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist': None, 'activation':nn.ELU, 'kernel':3, 'depth':16})
     # obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'normal', 'activation':nn.ELU, 'kernel':3, 'depth':16})
     obs_decoder: Dict = field(default_factory=lambda:{'layers':3, 'node_size':100, 'dist':'binary', 'activation':nn.ELU, 'kernel':3, 'depth':16})

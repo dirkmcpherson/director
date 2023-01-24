@@ -73,6 +73,7 @@ class ObsDecoder(nn.Module):
             activation(),
             nn.ConvTranspose2d(d, c, k, 1),
         )
+        self.dist = info['dist']
 
     def forward(self, x):
         batch_shape = x.shape[:-1]
@@ -83,7 +84,11 @@ class ObsDecoder(nn.Module):
         x = torch.reshape(x, (squeezed_size, *self.conv_shape))
         x = self.decoder(x)
         mean = torch.reshape(x, (*batch_shape, *self.output_shape))
-        obs_dist = td.Independent(td.Normal(mean, 1), len(self.output_shape))
+
+        if self.dist == 'binary':
+            return td.independent.Independent(td.Bernoulli(logits=mean), len(self.output_shape))
+        else:
+            obs_dist = td.Independent(td.Normal(mean, 1), len(self.output_shape))
         return obs_dist
     
 def conv_out(h_in, padding, kernel_size, stride):

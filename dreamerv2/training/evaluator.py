@@ -83,8 +83,7 @@ class Evaluator(object):
 
     def render_embedding(self, decoded_img):
         self.ax.cla()
-        # ipshell()
-        # sys.exit()
+        decoded_img = (decoded_img == 1)
         numerical_state = np.amax(decoded_img*np.reshape(np.arange(self.n_channels)+1,(1,1,-1)),2)+0.5
         # numerical_state = np.amax(decoded_img, 2)+0.5
         self.ax.imshow(numerical_state, cmap=self.cmap, norm=self.norm, interpolation='none')
@@ -126,8 +125,6 @@ class Evaluator(object):
                 # ipshell()
                 # sys.exit()
                 if self.config.eval_render:
-
-                    # ipshell()
                     self.render_embedding(decoded_img)
                     env.render()
 
