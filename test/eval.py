@@ -61,7 +61,7 @@ def main(args):
     evaluator = Evaluator(config, device, env)
     best_score = 0
     
-    for f in sorted(os.listdir(model_dir)):
+    for f in sorted(os.listdir(model_dir))[-1:]:
         print('evaluating model : ', f)
         eval_score = evaluator.eval_saved_agent(env,  os.path.join(model_dir, f))
         if eval_score > best_score:

@@ -3,9 +3,13 @@ import argparse
 import os
 import torch
 import numpy as np
-import gym
+import gymnasium as gym
+import panda_gym
+
+from IPython import embed as ipshell
+
 from dreamerv2.utils.wrapper import GymMinAtar, OneHotAction
-from dreamerv2.training.config import MinAtarConfig
+from dreamerv2.training.config import MinAtarConfig, PandaGymConfig
 from dreamerv2.training.director_trainer import Trainer
 from dreamerv2.training.evaluator import Evaluator
 
@@ -26,10 +30,30 @@ def main(args):
         torch.cuda.manual_seed(args.seed)
     else:
         device = torch.device('cpu')
-    print('using :', device)  
-    
-    env = OneHotAction(GymMinAtar(env_name))
-    obs_shape = env.observation_space.shape
+    print('using :', device)
+
+    UsePandaGym = True
+    if UsePandaGym:
+        env = gym.make(
+            "PandaSlide-v3",
+            render_mode="rgb_array",
+        )
+        env.reset()
+        obs = env.render()
+    else:
+        env = OneHotAction(GymMinAtar(env_name))
+    if UsePandaGym:
+        obs = env.render(width=480,
+                        height=480,
+                        target_position=[0.2, 0, 0],
+                        distance=1.0,
+                        yaw=90,
+                        pitch=-70,
+                        roll=0,
+        )
+        obs_shape = obs.shape
+    else:
+        obs_shape = env.observation_space.shape
     action_size = env.action_space.shape[0]
     obs_dtype = bool
     action_dtype = np.float32
@@ -43,18 +67,31 @@ def main(args):
     print('batch_size:', batch_size)
     print('seq_len:', seq_len)
 
-    config = MinAtarConfig(
-        env=env_name,
-        obs_shape=obs_shape,
-        action_size=action_size,
-        obs_dtype = obs_dtype,
-        action_dtype = action_dtype,
-        seq_len = seq_len,
-        batch_size = batch_size,
-        model_dir=model_dir, 
-    )
+    if UsePandaGym:
+        config = PandaGymConfig(
+            env=env_name,
+            obs_shape=obs_shape,
+            action_size=action_size,
+            obs_dtype = obs_dtype,
+            action_dtype = action_dtype,
+            seq_len = seq_len,
+            batch_size = batch_size,
+            model_dir=model_dir, 
+        )
+    else:
+        config = MinAtarConfig(
+            env=env_name,
+            obs_shape=obs_shape,
+            action_size=action_size,
+            obs_dtype = obs_dtype,
+            action_dtype = action_dtype,
+            seq_len = seq_len,
+            batch_size = batch_size,
+            model_dir=model_dir, 
+        )
 
     config_dict = config.__dict__
+    # ipshell()
     trainer = Trainer(config, device)
     evaluator = Evaluator(config, device)
 
@@ -64,6 +101,15 @@ def main(args):
         train_metrics = {}
         trainer.collect_seed_episodes(env)
         obs, score, n_steps = env.reset(), 0, 0
+        if UsePandaGym: # TODO: Make a wrapper that does this for us
+            obs = env.render(width=config.image_size,
+                            height=config.image_size,
+                            target_position=[0.2, 0, 0],
+                            distance=1.0,
+                            yaw=90,
+                            pitch=-70,
+                            roll=0,
+            )
         done = False
         prev_rssmstate = trainer.RSSM._init_rssm_state(1)
         prev_action = torch.zeros(1, trainer.action_size).to(trainer.device)
@@ -90,6 +136,15 @@ def main(args):
                 episode_actor_ent.append(action_ent)
 
             next_obs, rew, done, _ = env.step(action.squeeze(0).cpu().numpy())
+            if UsePandaGym: # TODO: Make a wrapper that does this for us
+                next_obs = env.render(width=config.image_size,
+                            height=config.image_size,
+                            target_position=[0.2, 0, 0],
+                            distance=1.0,
+                            yaw=90,
+                            pitch=-70,
+                            roll=0,
+                            )
             score += rew
             n_steps += 1
 
@@ -112,6 +167,16 @@ def main(args):
                         torch.save(save_dict, best_save_path)
                 
                 obs, score, n_steps = env.reset(), 0, 0
+                if UsePandaGym: # TODO: Make a wrapper that does this for us 
+                    obs = env.render(width=480,
+                            height=480,
+                            target_position=[0.2, 0, 0],
+                            distance=1.0,
+                            yaw=90,
+                            pitch=-70,
+                            roll=0,
+                            )
+
                 done = False
                 prev_rssmstate = trainer.RSSM._init_rssm_state(1)
                 prev_action = torch.zeros(1, trainer.action_size).to(trainer.device)
