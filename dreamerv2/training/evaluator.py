@@ -110,12 +110,12 @@ class Evaluator(object):
 
 
                     # Goal Encoder
-                    # s = posterior_rssm_state.deter
-                    # goal = self.GoalEncoder(s).sample() # dont need the gradient on the onehotcategorical so no rsample
-                    # goal = goal.view(1, -1)
-                    # decoded_s = self.GoalDecoder(goal)
-                    # decoded_img = self.ObsDecoder(torch.cat((decoded_s, posterior_rssm_state.stoch), dim=-1)).sample()
-                    decoded_img = self.ObsDecoder(model_state).sample()
+                    s = posterior_rssm_state.deter
+                    goal = self.GoalEncoder(s).sample() # dont need the gradient on the onehotcategorical so no rsample
+                    goal = goal.view(1, -1)
+                    decoded_s = self.GoalDecoder(goal)
+                    decoded_img = self.ObsDecoder(torch.cat((decoded_s, posterior_rssm_state.stoch), dim=-1)).sample()
+                    # decoded_img = self.ObsDecoder(model_state).sample()
                     decoded_img = decoded_img.squeeze(0).cpu().numpy()
                     decoded_img = np.transpose(decoded_img, (1,2,0))
                     # ipshell()
